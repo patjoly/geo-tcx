@@ -36,9 +36,8 @@ jobs:
     - name: Install Modules
       run: |
         rm -f Makefile.PL
-        cpanm Dist::Zilla::Plugin::VersionFromModule
-        dzil listdeps --missing | cpanm --notest
         dzil authordeps --missing | cpanm --notest
+        dzil listdeps --missing | cpanm --notest
 
     - name: Run tests
       run: |
