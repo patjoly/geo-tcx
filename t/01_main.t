@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 73;
+use Test::More tests => 72;
 use Geo::TCX;
 use File::Temp qw/ tempfile tempdir /;
 use Cwd qw(cwd abs_path);
@@ -77,7 +77,8 @@ is($oo2->set_wd(),            $home . '/Data/Garmin/',                          
 is($oo2->set_filename(),      $cwd  . '/t/2014-08-11-10-25-15.tcx', "    set_filename(): should be the name of the file with the absolute path from where it was open");
 
 my $oo3 = Geo::TCX->new ('t/2014-08-11-10-25-15.tcx', work_dir => '..');
-is($oo3->set_wd(),            $home . '/Dev/',                                     "    set_wd(): should be one level up from the cwd");
+# The following 1 test(s) pass on my system but will fail on others
+# is($oo3->set_wd(),            $home . '/Dev/',                                     "    set_wd(): should be one level up from the cwd");
 is($oo3->set_filename(),      $cwd  . '/t/2014-08-11-10-25-15.tcx', "    set_filename(): should be the name of the file with the absolute path from where it was open");
 
 my $oo5 = Geo::TCX->new ('t/2014-08-11-10-25-15.tcx', work_dir => 'tmp_rel_dir');

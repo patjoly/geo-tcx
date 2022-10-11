@@ -2,7 +2,7 @@ package Geo::TCX;
 use strict;
 use warnings;
 
-our $VERSION = '1.00';
+our $VERSION = '1.01';
 
 =encoding utf-8
 
@@ -855,7 +855,7 @@ Patrick Joly
 
 =head1 VERSION
 
-1.00
+1.01
 
 =head1 LICENCE AND COPYRIGHT
 
