@@ -1,0 +1,8 @@
+# fewer regexes necessary since using PruneCruft Dist::Zilla plugin
+
+# specific files
+^Notes(\.txt)*$
+^Todo(\.txt)*$
+^MANIFEST\.SKIP$
+^README$
+
