@@ -532,7 +532,7 @@ sub save {
     }
 
     # Flatten the course tracks into a a single track
-    $str_course_tracks =~ s,</Track>\s*<Track>,,s;
+    $str_course_tracks =~ s,</Track>\s*<Track>,,gs if $str_course_tracks;
 
     if ($o->is_course) {  $str .= $str_course_laps . $str_course_tracks }
     else {                $str .= $str_activity_laps }

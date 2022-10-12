@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 31;
+use Test::More tests => 32;
 use Geo::TCX::Trackpoint;
 
 # Section A - new() constructor
@@ -25,10 +25,12 @@ is($tp->LatitudeDegrees,  '45.304996',  "    LatitudeDegrees, AUTOLOAD method");
 is($tp->LongitudeDegrees, '-72.637243', "    LongitudeDegrees, AUTOLOAD method");
 is($tp->AltitudeMeters, '211.082',      "    AltitudeMeters, AUTOLOAD method");
 is($tp->DistanceMeters, '13.030',       "    DistanceMeters, AUTOLOAD method");
-is($tp->Time, '2014-08-11T10:25:26Z',   "    Time, AUTOLOAD method");
 is($tp->HeartRateBpm, 80,               "    HeartRateBpm, AUTOLOAD method");
 is($tp->Cadence, undef,                 "    Cadence, AUTOLOAD method");
 is($tp->SensorState, undef,             "    SensorState, AUTOLOAD method");
+
+# Time method is now defined (no longer AUTOLOAD, to prevent setting it)
+is($tp->Time, '2014-08-11T10:25:26Z',   "    Time, AUTOLOAD method");
 
 #
 # to_gpx()
@@ -61,33 +63,26 @@ my $clone = $tp->clone;
 isa_ok ($clone, 'Geo::TCX::Trackpoint');
 
 #
-# distance_to(), distance_meters(), localtime, time_add, time_epoch, xml_string()
+# distance_to(), distance_meters(), time_local, time_add, time_epoch, xml_string()
 
 #
-# time_add()
-my ($tpc, $dt, $dtc);
-$tpc = $tp->clone;
-$dtc = $tpc->time_add( seconds => 45 );
-is ( ($tpc->time_epoch - $tp->time_epoch), '45',    "   time_add(): checking that internal date fields are updated");
-isa_ok ($dtc, 'DateTime');
+# time_add(), time_subtract()
+my $c = $tp->clone;
+$c->time_add( seconds => 45 );
+is ( ($c->time_epoch - $tp->time_epoch), '45',    "   time_add(): checking that internal date fields are updated");
+$c->time_subtract( seconds => 45 );
+is ( ($c->time_epoch - $tp->time_epoch), 0,       "   time_sutract(): checking that time_add() and time_subtract() by the same amount, provide the same time");
 
-# strange that the stringification of the DateTime objects return by time() and time_add() is different. Look into that, although it is not an issue, I have no use for that string (but I mainly use to view the date in human form sometimes)
-$dt = $tp->time;
-is ($dtc, 'Mon Aug 11 06:26:11 2014',               "   time_add()");
-# this one fails
-# is ($dt,  'Mon Aug 11 06:25:26 2014',               "   time_add()");
-# print( $dt) 
-# would return '2014-08-11T10:25:26'
-# ahhh seems to be a timezone thing, look into it, see the four hour difference, it seems to be localtime
+is ($tp->Time, '2014-08-11T10:25:26Z',             "   test Time before time_subtract()");
 
-$dtc = $tpc->time_subtract( seconds => 45 );
-is ( ($tpc->time_epoch - $tp->time_epoch), 0,    "   time_sutract(): checking that time_add() and time_subtract() by the same amount, provide the same time");
+TODO: {
+    local $TODO = "time_local() will fail across timezone given that, by design, it always returns local time from the caller's perspecitive. Design different tests or ignore";
 
-#
-# time_subtract()
-
-$dt = $tp->time_subtract( days => 2, hours => 3, , minutes => 59, seconds => 20 );
-is ($dt, 'Sat Aug  9 02:26:06 2014',    "   test time_subtract()");
+    is ($tp->time_local, 'Mon Aug 11 06:25:26 2014',    "   test time_local before time_subtract()");
+    $tp->time_subtract( days => 2, hours => 3, , minutes => 59, seconds => 20 );
+    is ($tp->time_local, 'Sat Aug  9 02:26:06 2014',    "   test time_local after time_subtract()")
+}
+is ($tp->Time, '2014-08-09T06:26:06Z',             "   test Time after time_subtract()");
 
 #
 # time_duration()

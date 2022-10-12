@@ -107,7 +107,7 @@ Methods with respect to certain fields can be autoloaded and return the current 
 
 For Basic trackpoints, LatitudeDegrees and LongitudeDegrees are the supported fields.
 
-For Full trackpoints, supported fields are: LatitudeDegrees, LongitudeDegrees, AltitudeMeters, DistanceMeters, Time, HeartRateBpm, Cadence, and SensorState.
+For Full trackpoints, supported fields are: LatitudeDegrees, LongitudeDegrees, AltitudeMeters, DistanceMeters, HeartRateBpm, Cadence, and SensorState.
 
 Some fields may contain a value of 0. It is safer to check if a field is defined with C<< if (defined $trackpoint->Cadence) >> rather than C<< if ($trackpoint->Cadence) >>.
 
@@ -311,7 +311,7 @@ sub new {
         $pt->{$1} = $2
     }
 
-    # for debugging -- allow trakcpoints with only coordinates but inspect them in debugger
+    # for debugging -- allow trackpoints with only coordinates but inspect them in debugger
     $pt->{_noTime} = 1 unless defined $pt->{Time};
     $pt->{_noDist} = 1 unless defined $pt->{DistanceMeters};
     if ($pt->{_noTime} or $pt->{_noDist}) {
@@ -319,10 +319,10 @@ sub new {
         #        $DB::single=1
     }
 
-    $pt->_set_distance( $pt->{DistanceMeters}, $previous_pt ) unless $pt->{_noDist};
+    $pt->_reset_distance( $pt->{DistanceMeters}, $previous_pt ) unless $pt->{_noDist};
     unless ($pt->{_noTime}) {
         my $orig_time_string = $pt->{Time};
-        $pt->_set_time( $pt->{Time}, $previous_pt ) unless $pt->{_noTime};
+        $pt->_reset_time( $pt->{Time}, $previous_pt ) unless $pt->{_noTime};
         print "strange ISO time not equal to time string from TCX file for this trackpoint\n"
                             if $orig_time_string ne $pt->{_time_iso8601};
     }
@@ -367,9 +367,7 @@ sub distance {
     $meters_formatted  = sprintf("%.3f", $meters) if defined $meters;
     $pt->{DistanceMeters} = $meters_formatted;
 
-    # keep this key inviolate after it is first instantiated -- similar to time()
-    # see method distance_elapsed( force => 1 ) if there is a need to change that field
-    if ( ! exists $pt->{_distance_elapsed} ) {
+    if ( ! exists $pt->{_distance_elapsed} ) {      # i.e. immutable
         if ( $previous_pt ) {
             my $dist_elapsed = $pt->distance - $previous_pt->distance;
             $pt->{_distance_elapsed} = sprintf("%.3f", $dist_elapsed)
@@ -382,15 +380,13 @@ sub distance {
 
 =item distance_elapsed( $value, force => true/false )
 
-Returns the elapsed distance (in meters) of a point as initially computed when the trackpoint was created.
+Returns the elapsed distance (in meters) of a point as initially computed when the trackpoint was created. The value is never reset unless C<< force => 1 >> is specified.
 
-For the moment, the value is never reset unless called with option C<< force => 1 >> which is not recommended.
+C<force> is needed internally by L<Geo::TCX::Lap>'s C<split()> and L<Geo::TCX::Track>'s <merge()> methods. Use with caution.
 
 =back
 
 =cut
-
-# actually the undocumented _set_distance() can be called if needed. Proceed with caution.
 
 sub distance_elapsed {
     my ($pt, $value)  = (shift, shift);
@@ -404,34 +400,49 @@ sub distance_elapsed {
 
 =over 4
 
-=item time( $DateTime or $time_string, Trackpoint object )
+=item Time()
 
-Expects a L<DateTime> object or a I<$time_string> in a format parseable by L<DateTime::Format::ISO8601>'s C<parse_datetime> constructor and sets the time-related fields for the trackpoint. Returns a L<DateTime> object corresponding to the time of that point.
-
-If the elapsed-time information for the point is not already set and another trackpoint object is also provided (e.g. the previous trackpoint), the method will compute and store the time (in seconds) since the timestamp of that previous point. This field is accessible via the C<time_elapsed()> method.
-
-The method maybe called without arguments to obtain an instance of a L<DateTime> object corresponding to the time of that point (no reference to DateTime objects are ever kept in trackpoints, they are too voluminous). 
-
-To simply get the C<Time> field, call the AUTOLOAD accessor for it.
+Returns the C<Time> field of a trackpoint.
 
 =back
 
 =cut
 
-sub time {
-    my ($pt, $time, $previous_pt, $dt) = shift;
-    unless (@_) { return DateTime::Format::ISO8601->parse_datetime( $pt->Time ) }
-    # NB: DateTime objects are not retained in a trackpoint given how voluminous they are
-    # this would also pose a challenge for debugging, so we provide a way to regenerate
-    # one here as above if needed
+sub Time { return shift->{Time} }
 
+=over 4
+
+=item time_dt ()
+
+=item time_datetime ()
+
+Return a L<DateTime> object corresponding to the time of a trackpoint.
+
+=back
+
+=cut
+
+sub time_dt          { return DateTime::Format::ISO8601->parse_datetime( shift->Time ) }
+sub time_datetime    { return DateTime::Format::ISO8601->parse_datetime( shift->Time ) }
+# we never store a DateTime object but provide a method to create one
+
+# Expects a I<$time_string> in a format parseable by L<DateTime::Format::ISO8601>'s C<parse_datetime> constructor
+# . sets the time-related fields for the trackpoint. Returns true.
+# . if the elapsed-time key for the point is not already set and another trackpoint object is also provided,
+#     e.g. the previous trackpoint, it will also set the _time_elapsed key (= number of seconds since the timestamp of that previous point)
+# . allow a DateTime obj as argument instead as required by methods that increment time such
+#     that we can update keys to be consistent with the new time e.g. time_add(), time_subtract()
+
+sub _set_time_keys {
+    my ($pt, $time, $previous_pt, $dt) = (shift, shift);
     $previous_pt = pop if ref $_[-1] and $_[-1]->isa('Geo::TCX::Trackpoint');
-    $time = shift;
 
+    # time_add() and time_subtract() need to pass a dt object 
     if ( ref( $time ) and $time->isa('DateTime') ) {
         $dt = $time
     } else {
-        $dt = DateTime::Format::ISO8601->parse_datetime( $time )
+        $pt->{Time} = $time;
+        $dt = $pt->time_datetime
     }
 
     $pt->{Time}          = _time_format($dt);
@@ -439,29 +450,25 @@ sub time {
     $pt->{_time_local}   = _time_format($dt, local => 1);
     $pt->{_time_epoch}   = $dt->epoch;
 
-    # keep this key inviolate after it is first instantiated (at least, that's the current implemtation for now)
-    # elapsed time is an incremental value. If we move the time of a trackpoint with time_add, we will not change the elapsed time.
-    # here: we don't change it even if it's undef and the key exists (i.e. means we've been here once, that's enough)
-    # see method time_elapsed( force => 1 ) if there is a need to change that field (as Laps.pm does).
-    if ( ! exists $pt->{_time_elapsed} ) {
+    if ( ! exists $pt->{_time_elapsed} ) {          # i.e. immutable
         if ( $previous_pt ) {
-            $pt->{_time_elapsed} = $pt->time_epoch - $previous_pt->time_epoch
+            $pt->{_time_elapsed} = $pt->{_time_epoch} - $previous_pt->{_time_epoch}
         } else { $pt->{_time_elapsed} = undef }
     }
-    return $dt
+    return 1
 }
 
 =over 4
 
-=item localtime( $trackpoint )
+=item time_local( $trackpoint )
 
-Returns the formatted local time of the trackpoint (in the locale of the system, not that of the track per se, i.e. it is not possible to know the zone of where the track was recorded at this stage).
+Returns the formatted local time of the trackpoint. The local time is always represented based on the locale of the system that calls this method, not that of where the trackpoint was recorded. It is not possible to know in which time zone a trackpoint was recorded at this stage.
 
 =back
 
 =cut
 
-sub localtime { return shift->{_time_local} }
+sub time_local { return shift->{_time_local} }
 
 =over 4
 
@@ -469,7 +476,7 @@ sub localtime { return shift->{_time_local} }
 
 =item time_subtract( @duration )
 
-Perform L<DateTime> math on the timestamps of each lap's starttime and trackpoint by adding the specified time duration.
+Perform L<DateTime> math on the timestamps of each lap's starttime and trackpoint by adding the specified time duration and return true.
 
 The duration can be provided as an actual L<DateTime::Duration> object or an array of arguments as per the syntax of L<DateTime>'s C<add()> or C<subtract()> methods, which expect a hash of keys such as
     years        => 3,
@@ -484,8 +491,6 @@ The duration can be provided as an actual L<DateTime::Duration> object or an arr
 
 where only the relevant keys need to be specified i.e. C<< time_add( minutes > 30, seconds > 15) >>.
 
-Return the resulting L<DateTime> object.
-
 =back
 
 =cut
@@ -495,10 +500,10 @@ sub time_add {
     if (ref $_[0] and $_[0]->isa('DateTime::Duration') ) {
         $dur = shift
     } else { $dur = DateTime::Duration->new( @_ ) }
-    my $dt = $pt->time;
+    my $dt = $pt->time_datetime;
     $dt->add( $dur );
-    $pt->time( $dt );       # resets other time fields that need to be changed
-    return $dt
+    $pt->_set_time_keys( $dt );
+    return 1
 }
 
 sub time_subtract {
@@ -506,44 +511,35 @@ sub time_subtract {
     if (ref $_[0] and $_[0]->isa('DateTime::Duration') ) {
         $dur = shift
     } else { $dur = DateTime::Duration->new( @_ ) }
-    my $dt = $pt->time;
+    my $dt = $pt->time_datetime;
     $dt->subtract( $dur );
-    $pt->time( $dt );       # resets other time fields that need to be changed
-    return $dt
+    $pt->_set_time_keys( $dt );
+    return 1
 }
 
 =over 4
 
-=item time_epoch( $epoch_time )
+=item time_epoch()
 
-Sets/gets the time of a point based on an epoch time. Returns the point's epoch time.
+Returns the epoch time of a point.
 
 =back
 
 =cut
 
-sub time_epoch {
-    my ($pt, $epoch) = @_;
-    if ($epoch) {
-        my $dt = DateTime->from_epoch( epoch => $epoch );
-        $pt->time( $dt )
-    }
-    return $pt->{_time_epoch}
-}
+sub time_epoch { return shift->{_time_epoch} }
 
 =over 4
 
 =item time_elapsed( $value, force => true/false )
 
-Returns the elapsed time of a point as initially computed when the trackpoint was created.
+Returns the elapsed time of a point as initially computed when the trackpoint was created. The value is never reset unless C<< force => 1 >> is specified.
 
-For the moment, the value is never reset unless called with option C<< force => 1 >> which is not recommended.
+C<force> is needed internally by L<Geo::TCX::Lap>'s constructor, C<split()>, and C<reverse()> methods as well as L<Geo::TCX::Track>'s <reverse()>. Use with caution.
 
 =back
 
 =cut
-
-# actually the undocumented _set_time() can be called if needed. Proceed with caution.
 
 sub time_elapsed {
     my ($pt, $value)  = (shift, shift);
@@ -557,7 +553,7 @@ sub time_elapsed {
 
 =over 4
 
-=item time_duration( $datetime )
+=item time_duration( $datetime or $trackpoint or $string or $integer )
 
 Returns a L<DateTime::Duration> object containing the duration between the timestamps of two trackpoints. Consistent with the documentation for L<DateTime::Duration> the "duration is relative to the object from which I<$datetime> is subtracted". The duration will be positive if the timestamp of I<$datetime> occurs prior to the trackpoint, otherwise it will be negative.
 
@@ -579,14 +575,14 @@ sub time_duration {
         } else {
             croak 'object as argument must be either a DateTime or a Trackpoint instance'
                      unless $_[0]->isa('Geo::TCX::Trackpoint');
-            $datetime = $_[0]->time
+            $datetime = $_[0]->time_datetime
         }
     } elsif ($_[0] =~ /^(\d+)$/) {
         $datetime = DateTime->from_epoch( epoch => $1 )
     } else {
         $datetime = DateTime::Format::ISO8601->parse_datetime( $_[0] )
     }
-    $dt = $self->time;
+    $dt = $self->time_datetime;
 
     my $dur = $dt->subtract_datetime( $datetime );
     return $dur
@@ -624,9 +620,6 @@ sub xml_string {
     return $str
 }
 
-#
-# internal function
-
 sub _time_format {
     my $dt = shift;
     # !! TODO:  check that ref is not a Garmin Object (croack that function is not a class method)
@@ -637,23 +630,23 @@ sub _time_format {
     } else {
         $dt->set_formatter( $formatter_xsd )
     }
-    return "$dt"
+    return $dt->stringify
 }
 
-#
-# undocumented (for now ): also called by Track.pm
+# called by Track.pm
+# - ALWAYS resets the elapsed field that _set_* treats as immutable
 
-sub _set_time {
+sub _reset_time {
     my ($pt, $time, $previous_pt) = @_;
-    if (ref $previous_pt) {
-        croak 'second argument must be a Trackpoint object' unless $previous_pt->isa('Geo::TCX::Trackpoint')
-    }
+    $previous_pt = pop if ref $_[-1] and $_[-1]->isa('Geo::TCX::Trackpoint');
     delete $pt->{_time_elapsed};
-    $pt->time($time, $previous_pt);
+    $pt->_set_time_keys($time, $previous_pt);
     return $pt
 }
 
-sub _set_distance {
+# called by Track.pm
+
+sub _reset_distance {
     my ($pt, $distance, $previous_pt) = @_;
     if (ref $previous_pt) {
         croak 'second argument must be a Trackpoint object' unless $previous_pt->isa('Geo::TCX::Trackpoint')

@@ -225,17 +225,16 @@ sub reverse {
 
         if ($i == 1) {
             $dist_meters = 0;
-            $pt->time( $orig_t->trackpoint(1)->Time )
+            $pt->_reset_time( $orig_t->trackpoint(1)->Time )
         } else {
-            $dist_meters   = $previous_pt->DistanceMeters + $previous_pt_distance_elapsed;
-            $pt->time_epoch( $previous_pt->time_epoch     + $previous_pt_time_elapsed )
+            $dist_meters   = $previous_pt->DistanceMeters + $previous_pt_distance_elapsed
         }
-        # we need to capture the following before they get modified by _set_* below
+        # capture these before they get modified by _reset_* below
         $previous_pt_distance_elapsed = $pt->distance_elapsed;
         $previous_pt_time_elapsed = $pt->time_elapsed;
 
-        $pt = $pt->_set_time(     $pt->Time,    $previous_pt );
-        $pt = $pt->_set_distance( $dist_meters, $previous_pt );
+        $pt = $pt->_reset_time(     $pt->Time,    $previous_pt );
+        $pt = $pt->_reset_distance( $dist_meters, $previous_pt );
         $previous_pt = $pt;
         push @{$t->{Points}}, $pt
     }
