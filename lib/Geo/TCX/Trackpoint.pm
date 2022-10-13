@@ -341,31 +341,6 @@ sub AUTOLOAD {
 
 =head2 Object Methods for class Geo::TXC::Trackpoint::Full
 
-=cut
-
-sub _set_distance_keys {
-    my ($pt, $meters, $previous_pt) = shift;
-    $previous_pt = pop if ref $_[-1] and $_[-1]->isa('Geo::TCX::Trackpoint');
-    $meters = shift;
-
-    my $meters_formatted;
-    $meters_formatted  = sprintf("%.3f", $meters) if defined $meters;
-
-    $pt->{DistanceMeters} = $meters_formatted;
-
-    if ( ! exists $pt->{_distance_elapsed} ) {      # i.e. immutable here
-        if ( $previous_pt ) {
-            my $dist_elapsed = $pt->DistanceMeters - $previous_pt->DistanceMeters;
-            $pt->{_distance_elapsed} = sprintf("%.3f", $dist_elapsed)
-        } else { $pt->{_distance_elapsed} = $meters_formatted }
-    }
-    return 1
-}
-
-# Expects a decimal-number or integer and sets the C<DistanceMeters> field for the trackpoint and returns true
-# . if the _distance_elapsed key for the point is not already defined and another trackpoint object is also provided,
-#     e.g. the previous trackpoint, it will also set it (number of meters from that previous point)
-
 =over 4
 
 =item distance_elapsed( $value, force => true/false )
@@ -415,38 +390,6 @@ Return a L<DateTime> object corresponding to the time of a trackpoint.
 sub time_dt          { return DateTime::Format::ISO8601->parse_datetime( shift->Time ) }
 sub time_datetime    { return DateTime::Format::ISO8601->parse_datetime( shift->Time ) }
 # we never store a DateTime object but provide a method to create one
-
-# Expects a I<$time_string> in a format parseable by L<DateTime::Format::ISO8601>'s C<parse_datetime> constructor
-# . sets the time-related fields for the trackpoint. Returns true.
-# . if the _time_elapsed key for the point is not already defined and another trackpoint object is also provided,
-#     e.g. the previous trackpoint, it will also set it (as number of seconds since the timestamp of that previous point)
-# . allows a DateTime obj as argument instead of $time which is required by methods that need to modify time so
-#     that we can update the keys to be consistent with the new time e.g. time_add(), time_subtract(), _reset_time_from_epoch()
-
-sub _set_time_keys {
-    my ($pt, $time, $previous_pt) = (shift, shift);
-    $previous_pt = pop if ref $_[-1] and $_[-1]->isa('Geo::TCX::Trackpoint');
-
-    my $dt;
-    if ( ref( $time ) and $time->isa('DateTime') ) {
-        $dt = $time
-    } else {
-        $pt->{Time} = $time;
-        $dt = $pt->time_datetime
-    }
-
-    $pt->{Time}          = _time_format($dt);
-    $pt->{_time_iso8601} = _time_format($dt);
-    $pt->{_time_local}   = _time_format($dt, local => 1);
-    $pt->{_time_epoch}   = $dt->epoch;
-
-    if ( ! exists $pt->{_time_elapsed} ) {          # i.e. immutable here
-        if ( $previous_pt ) {
-            $pt->{_time_elapsed} = $pt->{_time_epoch} - $previous_pt->{_time_epoch}
-        } else { $pt->{_time_elapsed} = undef }
-    }
-    return 1
-}
 
 =over 4
 
@@ -610,18 +553,7 @@ sub xml_string {
     return $str
 }
 
-sub _time_format {
-    my $dt = shift;
-    # !! TODO:  check that ref is not a Garmin Object (croack that function is not a class method)
-    my %opts = @_;
-    if ($opts{'local'}) {
-        $dt->set_formatter( $Formatter );      # see pattern in $Formatter
-        $dt->set_time_zone( $LocalTZ )
-    } else {
-        $dt->set_formatter( $formatter_xsd )
-    }
-    return $dt->stringify
-}
+# Internal methods and functions
 
 sub _reset_time {                              # called by new() and by Track.pm
     my ($pt, $time, $previous_pt) = @_;
@@ -646,6 +578,74 @@ sub _reset_distance {                          # called by new() and by Track.pm
     }
     delete $pt->{_distance_elapsed};
     $pt->_set_distance_keys($distance, $previous_pt);
+    return 1
+}
+
+# Expects a I<$time_string> in a format parseable by L<DateTime::Format::ISO8601>'s C<parse_datetime> constructor
+# . sets the time-related fields for the trackpoint. Returns true.
+# . if the _time_elapsed key for the point is not already defined and another trackpoint object is also provided,
+#     e.g. the previous trackpoint, it will also set it (as number of seconds since the timestamp of that previous point)
+# . allows a DateTime obj as argument instead of $time which is required by methods that need to modify time so
+#     that we can update the keys to be consistent with the new time e.g. time_add(), time_subtract(), _reset_time_from_epoch()
+
+sub _set_time_keys {
+    my ($pt, $time, $previous_pt) = (shift, shift);
+    $previous_pt = pop if ref $_[-1] and $_[-1]->isa('Geo::TCX::Trackpoint');
+
+    my $dt;
+    if ( ref( $time ) and $time->isa('DateTime') ) {
+        $dt = $time
+    } else {
+        $pt->{Time} = $time;
+        $dt = $pt->time_datetime
+    }
+
+    $pt->{Time}          = _time_format($dt);
+    $pt->{_time_iso8601} = _time_format($dt);
+    $pt->{_time_local}   = _time_format($dt, local => 1);
+    $pt->{_time_epoch}   = $dt->epoch;
+
+    if ( ! exists $pt->{_time_elapsed} ) {          # i.e. immutable here
+        if ( $previous_pt ) {
+            $pt->{_time_elapsed} = $pt->{_time_epoch} - $previous_pt->{_time_epoch}
+        } else { $pt->{_time_elapsed} = undef }
+    }
+    return 1
+}
+
+sub _time_format {
+    my $dt = shift;
+    # !! TODO:  check that ref is not a Garmin Object (croack that function is not a class method)
+    my %opts = @_;
+    if ($opts{'local'}) {
+        $dt->set_formatter( $Formatter );      # see pattern in $Formatter
+        $dt->set_time_zone( $LocalTZ )
+    } else {
+        $dt->set_formatter( $formatter_xsd )
+    }
+    return $dt->stringify
+}
+
+# Expects a decimal-number or integer and sets the C<DistanceMeters> field for the trackpoint and returns true
+# . if the _distance_elapsed key for the point is not already defined and another trackpoint object is also provided,
+#     e.g. the previous trackpoint, it will also set it (number of meters from that previous point)
+
+sub _set_distance_keys {
+    my ($pt, $meters, $previous_pt) = shift;
+    $previous_pt = pop if ref $_[-1] and $_[-1]->isa('Geo::TCX::Trackpoint');
+    $meters = shift;
+
+    my $meters_formatted;
+    $meters_formatted  = sprintf("%.3f", $meters) if defined $meters;
+
+    $pt->{DistanceMeters} = $meters_formatted;
+
+    if ( ! exists $pt->{_distance_elapsed} ) {      # i.e. immutable here
+        if ( $previous_pt ) {
+            my $dist_elapsed = $pt->DistanceMeters - $previous_pt->DistanceMeters;
+            $pt->{_distance_elapsed} = sprintf("%.3f", $dist_elapsed)
+        } else { $pt->{_distance_elapsed} = $meters_formatted }
+    }
     return 1
 }
 
