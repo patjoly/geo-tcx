@@ -320,7 +320,7 @@ sub distance_add {
     my ($t, $meters) = (shift, shift);
     for my $i (0 .. $#{$t->{Points}}) {
         my $tp = $t->{Points}[$i];
-        $tp->distance( $tp->DistanceMeters + $meters )
+        $tp->_set_distance_keys( $tp->DistanceMeters + $meters )
     }
     return 1
 }
