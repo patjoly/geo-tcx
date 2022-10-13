@@ -644,6 +644,14 @@ sub _reset_time {
     return $pt
 }
 
+sub _reset_time_from_epoch {
+    my ($pt, $epoch, $previous_pt) = @_;
+    my $dt = DateTime->from_epoch( epoch => $epoch );
+    delete $pt->{_time_elapsed};
+    $pt->_set_time_keys( $dt, $previous_pt );
+    return $pt
+}
+
 # called by Track.pm
 
 sub _reset_distance {

@@ -2,19 +2,22 @@
 use strict;
 use warnings;
 
-use Test::More tests => 32;
+use Test::More tests => 35;
 use Geo::TCX::Trackpoint;
 
 # Section A - new() constructor
 
-my $basic_str = '<Position><LatitudeDegrees>45.304996</LatitudeDegrees><LongitudeDegrees>-72.637243</LongitudeDegrees></Position>';
+my $basic_str = '<Position><LatitudeDegrees>45.30296</LatitudeDegrees><LongitudeDegrees>-72.64125</LongitudeDegrees></Position>';
 my $full_str  = '<Trackpoint><Time>2014-08-11T10:25:26Z</Time><Position><LatitudeDegrees>45.304996</LatitudeDegrees><LongitudeDegrees>-72.637243</LongitudeDegrees></Position><AltitudeMeters>211.082</AltitudeMeters><DistanceMeters>13.030</DistanceMeters><HeartRateBpm><Value>80</Value></HeartRateBpm></Trackpoint>';
+my $full_str2 = '<Trackpoint><Time>2014-08-11T10:25:51Z</Time><Position><LatitudeDegrees>45.304450</LatitudeDegrees><LongitudeDegrees>-72.637330</LongitudeDegrees></Position><AltitudeMeters>209.562</AltitudeMeters><DistanceMeters>97.855</DistanceMeters><HeartRateBpm><Value>84</Value></HeartRateBpm></Trackpoint>';
 
 my $tp_basic = Geo::TCX::Trackpoint->new( $basic_str );
 isa_ok ($tp_basic, 'Geo::TCX::Trackpoint');
 isnt ($tp_basic, 'Geo::TCX::Trackpoint::Full');
 
-my $tp = Geo::TCX::Trackpoint::Full->new( $full_str );
+my ($tp, $tp2);
+$tp  = Geo::TCX::Trackpoint::Full->new( $full_str );
+$tp2 = Geo::TCX::Trackpoint::Full->new( $full_str2 );
 isa_ok ($tp, 'Geo::TCX::Trackpoint');
 isa_ok ($tp, 'Geo::TCX::Trackpoint::Full');
 
@@ -63,10 +66,19 @@ my $clone = $tp->clone;
 isa_ok ($clone, 'Geo::TCX::Trackpoint');
 
 #
-# distance_to(), distance_meters(), time_local, time_add, time_epoch, xml_string()
+# distance_to()
+
+my $dist1  = $tp->distance_to( $tp_basic );
+my $dist2  = $tp_basic->distance_to( $tp );
+my $dist3  = $tp->distance_to( $tp2 );
+is ( $dist1,  386.597957,   "   distance_to(): comparing distance between basic trackpoint and full trackpoint");
+is ( $dist2,  386.60708,    "   distance_to(): comparing distance between full trackpoint and basic trackpoint");
+# interesting that distance is not identical. Close enough to one decimal point. Really, good enough. Could round the return value of distance_to() too.
+is ( $dist3,  61.092501,    "   distance_to(): comparing distance between full trackpoints");
 
 #
 # time_add(), time_subtract()
+
 my $c = $tp->clone;
 $c->time_add( seconds => 45 );
 is ( ($c->time_epoch - $tp->time_epoch), '45',    "   time_add(): checking that internal date fields are updated");
