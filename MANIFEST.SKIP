@@ -5,4 +5,5 @@
 ^Todo(\.txt)*$
 ^MANIFEST\.SKIP$
 ^README$
+^Makefile.bak$
 
