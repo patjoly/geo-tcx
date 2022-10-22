@@ -9,7 +9,7 @@ use Geo::Gpx;
 
 # default locations and parameters
 my $recent = 25;
-my ( $src_dir, $wk_dir, $dev_dir, $way_dir );
+my ( $src_dir, $wrk_dir, $dev_dir, $gpx_dir, $trk_dir );
 
 my $tolerance_meters;           # default is 10
 $DB::single=1;
@@ -19,14 +19,15 @@ $tolerance_meters = 0;        # comment out or set to 10 or greater if did NOT u
 #   load new tcx file, save laps, and add begin and
 #   end points of each lap to a waypoints file
 
-my $o= Geo::TCX::Interactive->new( $src_dir, recent => $recent, work_dir => $wk_dir, device_dir => $dev_dir );
+if ($trk_dir) { chdir $trk_dir or die "can't chdir to $trk_dir: $!" }
+
+my $o= Geo::TCX::Interactive->new( $src_dir, recent => $recent, work_dir => $wrk_dir, device_dir => $dev_dir );
 $o->prompt_and_set_wd;
 # $o->lap_summary($_) for ( 1 .. $o->laps );
 
-$DB::single=1;
 $o->save_laps( force => 1 );
 
-my $w = $o->gpx_load( $way_dir );
+my $gpx = $o->gpx_load( $gpx_dir );
 
 $o->way_add_endpoints( tolerance_meters => $tolerance_meters );
 # $o->way_add_device;
@@ -37,8 +38,8 @@ $o->way_save(force => 1 );
 #
 # Usage and Examples
 my (@a, @s);
-@a = $w->waypoints_search( name => qr/19/ );
-@s = $w->waypoints_search( desc => qr/(?i:salamander)/ );
+@a = $gpx->waypoints_search( name => qr/19/ );
+@s = $gpx->waypoints_search( desc => qr/(?i:salamander)/ );
 my ($name, $regex1, $regex2);
 $name = 'MO-FP';
 $regex1 = qr/O-FP/;
