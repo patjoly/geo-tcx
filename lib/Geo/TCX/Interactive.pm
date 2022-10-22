@@ -48,10 +48,10 @@ Expects a folder as main argument instead of a file name. The user is then promp
 
 I<key/values> (all are optional)
 
-Z<>    C<< work_dir => $folder >>: specifies where to save any working files, such as with the save_laps() method.
+Z<>    C<< recent     => # >>      : specifies how many recent files to display, the default being 25.
+Z<>    C<< work_dir   => $folder >>: specifies where to save any working files, such as with the save_laps() method.
 Z<>    C<< device_dir => $folder >>: the location of the GPX folder on a device to retrieve and send waypoints. For instance:
-  device_dir = '/media/me/GARMIN/Garmin/GPX/'
-Z<>    C<< recent => # >>: specifies how many recent files to display, the default being 25.
+            device_dir = '/media/me/GARMIN/Garmin/GPX/'
 
 =back
 
@@ -114,7 +114,7 @@ sub prompt_and_set_wd {
 
 =item gpx_load( $file )
 
-Loads a Gpx file (containing waypoints) into the TCX object. If a directory is specified instead of a file, prompts for a choice among the gpx files found in that directory.
+Loads a Gpx file into the TCX object. If a directory is specified instead of a file, prompts for a choice among the gpx files found in that directory.
 
 Return a reference to the C<Geo::Gpx> object loaded.
 
@@ -142,7 +142,7 @@ sub gpx_load {
 
 =item way_add_endpoints( tolerance_meters => # )
 
-Compare the end points of each lap with all waypoints and, if distance is less than C<tolerance_meters> (default is 10 meters), prompts whether the waypoint should be added to the waypoints file and if so, what name should be given to the new waypoint. Set C<tolerance_meters> to 0 to compare all start/end points of laps with waypoints.
+Compare the end points of each lap with all waypoints in the loaded L<Geo::Gpx> instance and, if distance is less than C<tolerance_meters> (default is 10 meters), prompts whether the waypoint should be added to it. In the affirmative, prompts what name should be given to the new waypoint. Set C<tolerance_meters> to 0 to compare all start/end points of laps with waypoints, or to another desired value.
 
 =back
 
@@ -245,7 +245,7 @@ sub way_add_device {
 
 =over 4
 
-=item way_save( )
+=item gpx_save( )
 
 Save the gpx file. The same options as C<Geo::Gpx->save()> are expected. Returns true.
 
@@ -253,7 +253,7 @@ Save the gpx file. The same options as C<Geo::Gpx->save()> are expected. Returns
 
 =cut
 
-sub way_save {
+sub gpx_save {
     my ($o, %opts) = @_;
     $o->gpx->save( %opts );
     return 1

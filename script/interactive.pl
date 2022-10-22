@@ -31,7 +31,7 @@ my $gpx = $o->gpx_load( $gpx_dir );
 
 $o->way_add_endpoints( tolerance_meters => $tolerance_meters );
 # $o->way_add_device;
-$o->way_save(force => 1 );
+$o->gpx_save(force => 1 );
 
 # $o->way_edge_send;
 
