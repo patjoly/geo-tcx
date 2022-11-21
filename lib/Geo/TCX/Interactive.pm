@@ -160,8 +160,11 @@ sub way_add_endpoints {
             $order = ($pass == 1) ? 'first' : 'last';
             $index = ($pass == 1) ? 1 : -1;
             my $end_pt = $o->lap($i)->trackpoint( $index );
+            my $has_latitude = $end_pt->LatitudeDegrees;
 
-            my ($closest_wpt, $distance) = $gpx->waypoint_closest_to( $end_pt );
+
+            my ($closest_wpt, $distance);
+            ($closest_wpt, $distance) = $gpx->waypoint_closest_to( $end_pt ) if $has_latitude;
             if ($distance > $opts{tolerance_meters} ) {
                 print "\n$order point of lap $i is ", sprintf('%.1f', $distance), " meters from Waypoint \'";
                 print $closest_wpt->name, "\'\n   --> do you want to add that point ? ";

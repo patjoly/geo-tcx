@@ -10,6 +10,12 @@ use Geo::Gpx;
 # default locations and parameters
 my $recent = 25;
 my ( $src_dir, $wrk_dir, $dev_dir, $gpx_dir, $trk_dir );
+	$src_dir =  '~/Data/Src/Garmin/History/';
+	$wrk_dir =  '~/Data/Garmin/History';
+	$dev_dir =  '/media/pat/GARMIN/Garmin/GPX/';
+	$gpx_dir =  '~/Data/Garmin/Gpx/';
+	$trk_dir =  '/home/pat/.pytrainer/gpx';
+
 
 my $tolerance_meters;           # default is 10
 $DB::single=1;
@@ -21,6 +27,7 @@ $tolerance_meters = 0;        # comment out or set to 10 or greater if did NOT u
 
 if ($trk_dir) { chdir $trk_dir or die "can't chdir to $trk_dir: $!" }
 
+$DB::single=1;
 my $o= Geo::TCX::Interactive->new( $src_dir, recent => $recent, work_dir => $wrk_dir, device_dir => $dev_dir );
 $o->prompt_and_set_wd;
 # $o->lap_summary($_) for ( 1 .. $o->laps );
@@ -29,8 +36,8 @@ $o->save_laps( force => 1 );
 
 my $gpx = $o->gpx_load( $gpx_dir );
 
-$o->way_add_endpoints( tolerance_meters => $tolerance_meters );
 # $o->way_add_device;
+$o->way_add_endpoints( tolerance_meters => $tolerance_meters );
 $o->gpx_save(force => 1 );
 
 # $o->way_edge_send;
