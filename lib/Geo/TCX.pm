@@ -41,8 +41,6 @@ loads and returns a new Geo::TCX instance using the I<$filename> supplied as fir
 or
   $o = Geo::TCX->new( \'...');
 
-C<work_dir> or C<wd> for short can be set to specify where to save any working files (such as with the save_laps() method). The module never actually L<chdir>'s, it just keeps track of where the user wants to save files (and not have to type filenames with path each time), hence it is always defined.
-
 The optional C<work_dir> (or C<wd> for short) specifies where to save any working files, such as with the save_laps() method. It can be supplied as a relative path or as an absolute path. If C<work_dir> is omitted, it is set based on the path of the I<$filename> supplied or the current working directory if the constructor is called with an XML string reference (see C<< set_wd() >> for more info).
 
 =back
