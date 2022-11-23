@@ -2,8 +2,10 @@ package Geo::TCX::Interactive;
 use strict;
 use warnings;
 
-our $VERSION = '1.0';
+our $VERSION = '1.03';
 our @ISA=qw(Geo::TCX);
+
+=encoding utf-8
 
 =head1 NAME
 
@@ -35,6 +37,8 @@ There are no return values for a few methods that prompt the user for a response
 
 use Geo::TCX;
 use File::Basename;
+use File::Temp qw/ tempfile /;
+use IPC::System::Simple qw(system);
 use Carp qw(confess croak cluck);
 use Cwd;
 
@@ -44,14 +48,12 @@ use Cwd;
 
 =item new( $foldername, key/values )
 
-Expects a folder as main argument instead of a file name. The user is then prompted to select a file from a list of the most recent ones modified in that folder before returning an instance of the class for which many convenience methods can be used interactively in the debugger.
+Expects a folder as main argument instead of a file name. The user is then prompted to select a file from a list of the most recent ones modified in that folder before returning an instance of the class. Many convenience methods can then be used interactively, particularly if used in the perl debugger.
 
 I<key/values> (all are optional)
 
 Z<>    C<< recent     => # >>      : specifies how many recent files to display, the default being 25.
 Z<>    C<< work_dir   => $folder >>: specifies where to save any working files, such as with the save_laps() method.
-Z<>    C<< device_dir => $folder >>: the location of the GPX folder on a device to retrieve and send waypoints. For instance:
-            device_dir = '/media/me/GARMIN/Garmin/GPX/'
 
 =back
 
@@ -65,14 +67,12 @@ sub new {
     }
     croak 'first argument must be a folder' unless $dir and -d $dir;
     my %opts = @_;
+    my $recent_n = $opts{recent} || 25;
     my $class = ref($proto) || $proto;
 
-    my $recent_files = $opts{recent} || 25;
-
     my $fname;
-    $fname = _select_file_from_dir( $dir, '.tcx', $recent_files );
+    $fname = _select_file_from_dir( $dir, '.tcx', $recent_n );
     my $o = $class->SUPER::new( $fname, work_dir => $opts{work_dir} );
-    $o->{device_dir} = $opts{device_dir};
     return $o
 }
 
@@ -112,6 +112,27 @@ sub prompt_and_set_wd {
 
 =over 4
 
+=item save_laps( %options )
+
+is identical to C<< save_laps() >> in L<Geo::TCX> but will prompt the user to confirm the intention to save the laps before continuing. It expects the same I<%options> and returns the same value, except that it returns false if the user does not answer yes at the prompt.
+
+=back
+
+=cut
+
+sub save_laps {
+    my $o = shift;
+    print "Do you want to save the laps as individual files: ";
+    my $answer = _prompt_yes_no();
+    if ($answer =~ m/^y|ye|yes$/i) {
+        my $ret_val = $o->SUPER::save_laps(@_);
+        return $ret_val
+    }
+    return 0
+}
+
+=over 4
+
 =item gpx_load( $file )
 
 Loads a Gpx file into the TCX object. If a directory is specified instead of a file, prompts for a choice among the gpx files found in that directory.
@@ -142,7 +163,11 @@ sub gpx_load {
 
 =item way_add_endpoints( tolerance_meters => # )
 
-Compare the end points of each lap with all waypoints in the loaded L<Geo::Gpx> instance and, if distance is less than C<tolerance_meters> (default is 10 meters), prompts whether the waypoint should be added to it. In the affirmative, prompts what name should be given to the new waypoint. Set C<tolerance_meters> to 0 to compare all start/end points of laps with waypoints, or to another desired value.
+Compare the end points of each lap with all waypoints read in the L<Geo::Gpx> instance (by C<< gpx_load() >> and, if the distance is less than C<tolerance_meters>, prompts whether the waypoint should be added to it.
+
+In the affirmative, prompts what name and description should be given to the new waypoint. Set C<tolerance_meters> to 0 to compare all start/end points of laps with waypoints, or to another desired value.
+
+The default C<tolerance_meters> is 10. Returns true.
 
 =back
 
@@ -196,27 +221,65 @@ sub way_add_endpoints {
             }
         }
     }
+    return 1
 }
 
 =over 4
 
-=item way_add_device( $file )
+=item way_add_device( $directory_on_device )
 
-Compares the current waypoints file in a GPS device and, if distance is greater than 1 meter from an existing waypoint, prompts whether the waypoint should be added to the waypoints file. If no filename is provide, tries to get the file the device if plugged in.
+Prompts the user whether they wish to look for waypoints saved on a GPS device and compare them to the waypoints read in the C<Geo::TCX> instance by C<< gpx_load() >>. The device must be currently plugged in with a USB cable.
+
+In the affirmative, compares each waypoint from the device to those in the instance and, if the distance is greater than 1 meter, prompts whether the waypoint should be added to the waypoints in the object.
+
+If no directory is provided, tries to guess where that directory might be (provided the device is plugged in). Returns false if the directory or waypoints file cannot be found (does not die) or if the user responds no at the initial prompt. Otherwise returns true.
 
 =back
 
 =cut
 
 sub way_add_device {
-    my ($o, $fname) = (shift, shift);
-    if ($fname) {
-        croak "$fname cannot be found" unless -f $fname
+    my ($o, $loc_dir) = (shift, shift);
+    print "Do you want to search for waypoints saved on your device and add any new ones to the gpx file?\n";
+    print "  - first ensure the device is plugged in with a USB cable\n";
+    print "  - note that you will be prompted before adding any new waypoints\n  - ";
+    my $answer = _prompt_yes_no();
+    return 0 unless $answer =~ m/^y|ye|yes$/i;
+
+    if ($loc_dir) {
+        croak "$loc_dir cannot be found" unless -d $loc_dir
     } else {
-        croak "device_dir not defined" unless $o->{device_dir};
-        $fname = $o->{device_dir} . 'current/current.gpx'
+        my @try_these = (
+            "/media/$ENV{USER}/GARMIN/Garmin/Locations/",
+            "/media/$ENV{USER}/GARMIN/Garmin/GPX/current/"
+        );
+        for (@try_these) {
+            $loc_dir = $_ if -d $_;
+            last if $loc_dir
+        }
     }
-    croak 'way_add_device takes only a single filename as argument' if @_;
+    unless (defined $loc_dir) {
+        print "No Locations/Waypoints folder found on the device\n";
+        print "  - is the device plugged in?\n";
+        print "  - skipping adding waypoints from the device for now\n";
+        print "  - the location of the directory on the device can also be specified with --loc_dir=<path>\n";
+        return 0
+    }
+
+    my $fname;
+    $fname = ($loc_dir =~ /Locations/) ? $loc_dir . '/Locations.fit' : $loc_dir . '/current.gpx';
+    unless (-f $fname) {
+        print "No Locations/Waypoints file found on the device\n";
+        print "  - is the device plugged in?\n";
+        print "  - skipping adding waypoints from the device for now\n";
+        return 0
+    }
+    if ($loc_dir =~ /Locations/) {
+        my ($fh, $tmp_fname) = tempfile();
+        _convert_locations_to_gpx( $fname, $tmp_fname );
+        $fname = $tmp_fname
+    }
+
     my $gpx = $o->gpx;
 
     my $device = Geo::Gpx->new( input => $fname );
@@ -225,7 +288,7 @@ sub way_add_device {
     while ( my $pt = $iter->() ) {
         my ($closest_wpt, $distance) = $gpx->waypoint_closest_to( $pt );
         if ($distance > 1 ) {
-            print "Point '", $pt->name, "'from the device is ";
+            print "Point '", $pt->name, "' from the device is ";
             print sprintf('%.1f', $distance), " meters from Waypoint \'", $closest_wpt->name;
             print "\'\n   --> do you want to add that point? ";
             print "If so please type 'Y' (or type a new name to rename it), ";
@@ -244,13 +307,16 @@ sub way_add_device {
             }
         }
     }
+    return 1
 }
 
 =over 4
 
 =item gpx_save( )
 
-Save the gpx file. The same options as C<Geo::Gpx->save()> are expected. Returns true.
+Save the gpx file. The same options as C<Geo::Gpx->save()> are expected but will prompt the user whether to overwrite an existing file if C<$force> is false.
+
+Returns true if the file was saved, false otherwise.
 
 =back
 
@@ -258,6 +324,13 @@ Save the gpx file. The same options as C<Geo::Gpx->save()> are expected. Returns
 
 sub gpx_save {
     my ($o, %opts) = @_;
+    if (-f $o->gpx->set_filename and ! $opts{force} ) {
+        print "Overwrite " . $o->gpx->set_filename . ": ";
+        my $answer = _prompt_yes_no();
+        if ($answer =~ m/^y|ye|yes$/i) {
+            $opts{force} = 1
+        } else { return 0 }
+    }
     $o->gpx->save( %opts );
     return 1
 }
@@ -266,13 +339,12 @@ sub gpx_save {
 
 =item gpx( )
 
-Returns the L<Geo::Gpx> instance if one is found, croaks otherwise.
+Returns the L<Geo::Gpx> instance currently referenced in the object. Croaks if none is found.
 
 =back
 
 =cut
 
-# the gpx key should probably be renamed gpx and this method renamed gpx()
 sub gpx {
     my $o = shift;
     my $class = ref $o;
@@ -290,6 +362,8 @@ By default, the regex is case-sensitive; specify C<qr/(?i:...)/> to ignore case.
 
 Alternatively, an array of C<Geo::GXP::Points> can be supplied such that we can call C<< $o->way_clip( $o->gpx->search_desc( qr/(?i:Sunset)/ ) >>.
 
+This method is only supported on unix-based systems that have the C<xclip> utility installed (see BUGS AND LIMITATIONS).
+
 =back
 
 =cut
@@ -299,7 +373,7 @@ sub way_clip {
 
     my @points;
     if ( ref $_[0] and $_[0]->isa('Geo::Gpx::Point' )) {
-        @points = @_ 
+        @points = @_
     } else {
         my $first_arg = shift;
         if ( ref( $first_arg ) eq 'Regexp' )  {
@@ -367,6 +441,21 @@ sub lap_summary {
     return 1
 }
 
+our $FitConvertPl;
+sub _convert_locations_to_gpx {
+    require Geo::FIT;
+    my ( $fname, $tmp_fname ) = @_;
+    if (!defined $FitConvertPl) {
+        for (split /:/, $ENV{PATH} ) {
+            $FitConvertPl  = $_ . '/locations2gpx.pl';
+            last if -f $FitConvertPl
+        }
+    }
+    my @args = ('--outfile=' . $tmp_fname, '--force', $fname);
+    system($^X, $FitConvertPl, @args);
+    return 1
+}
+
 sub _select_file_from_dir {
     my ($dir, $ext, $recent) = @_;
 
@@ -418,17 +507,32 @@ sub _prompt_yes_no {
 
 Coming soon.
 
+=head1 DEPENDENCIES
+
+L<Geo::FIT> is also required to parse FIT files and to add waypoints from a GPS device (except for some older models).
+
+The C<< way_clip() >> method is only supported on unix-based systems that have the C<xclip> utility installed. On Debian based system, you may install it as
+
+  aptitude show xlip
+  sudo apt install xclip
+
+See your package manager's instructions for information on how to install it on other systems.
+
+=head1 SEE ALSO
+
+L<Geo::TCX>, L<Geo::Gpx>, L<Geo::FIT>, xclip(1).
+
+=head1 BUGS
+
+No bugs have been reported yet.
+
 =head1 AUTHOR
 
 Patrick Joly
 
 =head1 VERSION
 
-1.0
-
-=head1 SEE ALSO
-
-perl(1).
+1.03
 
 =cut
 

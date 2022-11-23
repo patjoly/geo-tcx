@@ -17,6 +17,9 @@ my %WriteMakefileArgs = (
     "Module::Build" => "0.28"
   },
   "DISTNAME" => "Geo-TCX",
+  "EXE_FILES" => [
+    "script/tcx_interactive.pl"
+  ],
   "LICENSE" => "perl",
   "MIN_PERL_VERSION" => "5.008",
   "NAME" => "Geo::TCX",
