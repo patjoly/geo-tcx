@@ -398,7 +398,6 @@ sub point_closest_to {
         croak 'point_closest_to() expects a Geo::TCX::Trackpoint of Geo::Gpx::Point as argument'
     }
 
-    my $gc = $to_pt->to_geocalc;
     my ($closest_pt, $min_dist, $pt_no);
     for (0 .. $#{$t->{Points}}) {
         my $pt   = $t->{Points}[$_];
@@ -408,7 +407,7 @@ sub point_closest_to {
             print "point number ", ($_ + 1), " doesn't have coordinates\n";
             next
         }
-        my $distance = $gc->distance_to({ lat => $lat, lon => $lon });
+        my $distance = $to_pt->distance_to( lat => $lat, lon => $lon );
         $min_dist ||= $distance; # the first iteration
         $closest_pt ||= $pt; # the first iteration
         if ($distance < $min_dist) {
