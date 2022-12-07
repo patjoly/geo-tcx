@@ -655,8 +655,10 @@ sub set_filename {
     my ($name, $path, $ext);
     ($name, $path, $ext) = fileparse( $fname, '\..*' );
     if ($wd) {
-        if ( ! ($fname =~ /^\// ) ) {
-            # ie if fname is not an abolsute path, adjust $path to be relative to work_dir
+        my $is_relative_path;
+        $is_relative_path = 1 if $fname =~ m,^[^/],;
+        $is_relative_path = 0 if $^O eq 'MSWin32' and $fname =~ m/^[A-Z]:/;
+        if ($is_relative_path) {
             ($name, $path, $ext) = fileparse( $wd . $fname, '\..*' )
         }
     }
@@ -700,7 +702,11 @@ sub set_wd {
         $dir =~ s/~/$ENV{'HOME'}/ if $dir =~ /^~/;
         $dir = $o->_set_wd_old    if $dir eq '-';
 
-        if ($dir =~ m,^[^/], ) {                # convert rel path to full
+        my $is_relative_path;
+        $is_relative_path = 1 if $dir =~ m,^[^/],;
+        $is_relative_path = 0 if $^O eq 'MSWin32' and $dir =~ m/^[A-Z]:/;
+
+        if ($is_relative_path) {                # convert rel path to full
             $dir =  $first_call ? cwd . '/' . $dir : $o->{work_dir} . $dir
         }
         $dir =~ s,/*$,/,;                       # some more cleaning
