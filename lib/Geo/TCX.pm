@@ -29,7 +29,7 @@ The documentation regarding TCX files in general uses the terms history and acti
 use Geo::TCX::Lap;
 use File::Basename;
 use File::Temp qw/ tempfile /;
-use IPC::System::Simple qw(system);
+use IPC::System::Simple qw(run capture);
 use Cwd qw(cwd abs_path);
 use Carp qw(confess croak cluck);
 
@@ -854,19 +854,63 @@ sub _lap_number {
     return $lap_i
 }
 
-our $FitConvertPl;
+our $Script_File;
+our $Script_Version;
+my  $version_at_least = 1.04;
+
 sub _convert_fit_to_tcx {
-    require Geo::FIT;
     my ( $fname, $tmp_fname ) = @_;
-    if (!defined $FitConvertPl) {
-        for (split /:/, $ENV{PATH} ) {
-            $FitConvertPl  = $_ . '/fit2tcx.pl';
-            last if -f $FitConvertPl
+
+    _check_fit2tcx_pl_version( $version_at_least ) unless defined $Script_File;
+
+    my @args = ($fname, $tmp_fname);
+    run($^X, $Script_File, @args);
+    return 1
+}
+
+sub _check_fit2tcx_pl_version {                 # Called by _convert_fit_to_tcx and t/fit.t
+    my $at_least = shift;
+    $at_least ||= $version_at_least;
+
+    require Geo::FIT;
+    croak "version of Geo::FIT $at_least or higher is required\n"    if Geo::FIT->version < $at_least;
+    croak "fit2tcx.pl from Geo::FIT is not available on your path\n" unless _get_path_to_fit2tcx_pl();
+
+    my ($exit_value, $did_start);               # Can we run it?
+    eval { $exit_value = run([0], 'fit2tcx.pl', '--version'); };
+    if ($@ =~ /failed to start: "(.*)"/ ) {
+        my $reason    = $!;
+        my $shell_msg = $1;                     # same (not) as $reason under linux (windows)
+        croak "fit2tcx.pl could not be run: ${reason}\n"
+    } elsif (defined $exit_value && $exit_value == 0) {
+        $did_start = 1
+    } else { croak "Something else happened: $@\n" }
+
+    if ($did_start) {                           # Is the version high enough?
+        my ($output, $version_msg);
+        $output = capture($^X, $Script_File, '--version');
+        chomp $output;
+
+        ($version_msg, $Script_Version) = split /: (?=\d+\.\d+)/, $output;
+        croak "version of fit2tcx.pl $at_least or higher is needed\n" if $Script_Version < $at_least;
+        return $Script_Version
+    }
+    return 0
+}
+
+sub _get_path_to_fit2tcx_pl {
+    if (!defined $Script_File) {
+        my @path =  split /:/, $ENV{PATH};
+        for (@path) {
+            my $try_file  = $_ . '/fit2tcx.pl';
+            if (-f $try_file) {
+                $Script_File = $try_file;
+                last
+            }
         }
     }
-    my @args = ($fname, $tmp_fname);
-    system($^X, $FitConvertPl, @args);
-    return 1
+    return $Script_File if defined $Script_File;
+    return 0
 }
 
 =head1 EXAMPLES
