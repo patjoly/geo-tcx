@@ -883,7 +883,7 @@ sub _check_fit2tcx_pl_version {                 # Called by _convert_fit_to_tcx 
     croak "fit2tcx.pl from Geo::FIT is not available on your path\n" unless _get_path_to_fit2tcx_pl();
 
     my ($exit_value, $did_start);               # Can we run it?
-    eval { $exit_value = run([0], 'fit2tcx.pl', '--version'); };
+    eval { $exit_value = run([0], $^X, $Script_File, '--version'); };
     if ($@ =~ /failed to start: "(.*)"/ ) {
         my $reason    = $!;
         my $shell_msg = $1;                     # same (not) as $reason under linux (windows)
@@ -906,10 +906,12 @@ sub _check_fit2tcx_pl_version {                 # Called by _convert_fit_to_tcx 
 
 sub _get_path_to_fit2tcx_pl {
     if (!defined $Script_File) {
-        my @path =  split /:/, $ENV{PATH};
+        my @path;
+        @path = $^O eq 'MSWin32' ? split /;/, $ENV{PATH} : split /:/, $ENV{PATH};
         for (@path) {
             my $try_file  = $_ . '/fit2tcx.pl';
             if (-f $try_file) {
+                $try_file =~ s,/,\\,g if $^O eq 'MSWin32';
                 $Script_File = $try_file;
                 last
             }
