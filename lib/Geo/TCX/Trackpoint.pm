@@ -265,13 +265,19 @@ our @ISA=qw(Geo::TCX::Trackpoint);
 
 use vars qw($AUTOLOAD %possible_attr);
 
-our ($LocalTZ, $Formatter);
-$LocalTZ   = DateTime::TimeZone->new( name => 'local' );
-$Formatter = DateTime::Format::Strptime->new( pattern => '%a %b %e %H:%M:%S %Y' );
-my $formatter_xsd = DateTime::Format::Strptime->new( pattern => '%Y-%m-%dT%H:%M:%SZ' );
-# ... to avoid looking up timezone each time Trackpoint->new is called
+our $LocalTZ;
+# capture local timezone at once to avoid looking it up each time new()is called
+# also default to UTC: on some systems or platforms (e.g. FreeBSD sometimes), the local timezone may not be found
+BEGIN {
+    eval { $LocalTZ  = DateTime::TimeZone->new( name => 'local' ) };
+    if ($@ =~ /Cannot determine local time zone/) {
+        $LocalTZ  = DateTime::TimeZone->new( name => 'UTC' )
+    }
+}
 
-# file-scoped lexicals
+our $Formatter     = DateTime::Format::Strptime->new( pattern => '%a %b %e %H:%M:%S %Y' );
+my  $formatter_xsd = DateTime::Format::Strptime->new( pattern => '%Y-%m-%dT%H:%M:%SZ' );
+
 my @attr = qw/ LatitudeDegrees LongitudeDegrees AltitudeMeters DistanceMeters Time HeartRateBpm Cadence SensorState /;
 $possible_attr{$_} = 1 for @attr;
 
