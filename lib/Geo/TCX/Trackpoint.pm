@@ -260,26 +260,26 @@ use Carp qw(confess croak cluck);
 our $VERSION = '1.06';
 our @ISA=qw(Geo::TCX::Trackpoint);
 
-
 { # lexical scope for that package
 
 use vars qw($AUTOLOAD %possible_attr);
 
-our $LocalTZ;
-# capture local timezone at once to avoid looking it up each time new()is called
-# also default to UTC: on some systems or platforms (e.g. FreeBSD sometimes), the local timezone may not be found
-BEGIN {
-    eval { $LocalTZ  = DateTime::TimeZone->new( name => 'local' ) };
-    if ($@ =~ /Cannot determine local time zone/) {
-        $LocalTZ  = DateTime::TimeZone->new( name => 'UTC' )
-    }
-}
-
-our $Formatter     = DateTime::Format::Strptime->new( pattern => '%a %b %e %H:%M:%S %Y' );
-my  $formatter_xsd = DateTime::Format::Strptime->new( pattern => '%Y-%m-%dT%H:%M:%SZ' );
-
 my @attr = qw/ LatitudeDegrees LongitudeDegrees AltitudeMeters DistanceMeters Time HeartRateBpm Cadence SensorState /;
 $possible_attr{$_} = 1 for @attr;
+
+my ($formatter, $formatter_xsd, $local_tz);
+$formatter     = DateTime::Format::Strptime->new( pattern => '%a %b %e %H:%M:%S %Y' );
+$formatter_xsd = DateTime::Format::Strptime->new( pattern => '%Y-%m-%dT%H:%M:%SZ' );
+
+# Determine local timezone:
+#   - avoids looking it up each time new()is called
+#   - default to UTC: on some systems/ platforms (e.g. FreeBSD sometimes), the local timezone may not be found
+eval { $local_tz  = DateTime::TimeZone->new( name => 'local' ) };
+if ($@) {
+    if ($@ =~ /Cannot determine local time zone/) {
+        $local_tz  = DateTime::TimeZone->new( name => 'UTC' )
+    } else { die "Something else happened: $@\n" }
+}
 
 sub new {
     my ($proto, $pt_str, $previous_pt) = (shift, shift, shift);
@@ -640,8 +640,8 @@ sub _time_format {
     # !! TODO:  check that ref is not a Garmin Object (croack that function is not a class method)
     my %opts = @_;
     if ($opts{'local'}) {
-        $dt->set_formatter( $Formatter );      # see pattern in $Formatter
-        $dt->set_time_zone( $LocalTZ )
+        $dt->set_formatter( $formatter );      # see pattern in $formatter
+        $dt->set_time_zone( $local_tz )
     } else {
         $dt->set_formatter( $formatter_xsd )
     }
