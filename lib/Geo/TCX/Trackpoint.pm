@@ -2,7 +2,7 @@ package Geo::TCX::Trackpoint;
 use strict;
 use warnings;
 
-our $VERSION = '1.06';
+our $VERSION = '1.07';
 
 =encoding utf-8
 
@@ -257,7 +257,7 @@ use warnings;
 use DateTime::Format::ISO8601;
 use Carp qw(confess croak cluck);
 
-our $VERSION = '1.06';
+our $VERSION = '1.07';
 our @ISA=qw(Geo::TCX::Trackpoint);
 
 { # lexical scope for that package
@@ -685,7 +685,7 @@ Patrick Joly
 
 =head1 VERSION
 
-1.06
+1.07
 
 =head1 SEE ALSO
 

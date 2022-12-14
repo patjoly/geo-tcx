@@ -2,7 +2,7 @@ package Geo::TCX::Interactive;
 use strict;
 use warnings;
 
-our $VERSION = '1.06';
+our $VERSION = '1.07';
 our @ISA=qw(Geo::TCX);
 
 =encoding utf-8
@@ -532,7 +532,7 @@ Patrick Joly
 
 =head1 VERSION
 
-1.06
+1.07
 
 =cut
 
