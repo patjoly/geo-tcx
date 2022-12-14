@@ -273,7 +273,7 @@ $formatter_xsd = DateTime::Format::Strptime->new( pattern => '%Y-%m-%dT%H:%M:%SZ
 
 # Determine local timezone:
 #   - avoids looking it up each time new()is called
-#   - default to UTC: on some systems/ platforms (e.g. FreeBSD sometimes), the local timezone may not be found
+#   - default to UTC: on some systems/platforms, the local timezone may not be found
 eval { $local_tz  = DateTime::TimeZone->new( name => 'local' ) };
 if ($@) {
     if ($@ =~ /Cannot determine local time zone/) {
@@ -417,7 +417,9 @@ sub time_datetime    { return DateTime::Format::ISO8601->parse_datetime( shift->
 
 =item time_local( $trackpoint )
 
-Returns the formatted local time of the trackpoint. The local time is always represented based on the locale of the system that calls this method, not that of where the trackpoint was recorded. It is not possible to know in which time zone a trackpoint was recorded at this stage.
+Returns a representation of the time of a trackpoint in the user's local time zone. The local time is always based on the locale of the user's system, and not that of where the trackpoint was recorded. It is not possible to know in which time zone a trackpoint was recorded at this stage.
+
+The local time zone is determined by calling L<DateTime::TimeZone>'s C<< new() >> constructor with C<< name => 'local' >>. On some systems and platforms, this method is unable to determine the local time zone, in which case we default to C<UTC>. See L<DateTime::TimeZone> for more information.
 
 =back
 
@@ -687,7 +689,7 @@ Patrick Joly
 
 =head1 SEE ALSO
 
-perl(1).
+L<DateTime>, L<DateTime::TimeZone>.
 
 =cut
 
