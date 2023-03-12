@@ -199,8 +199,15 @@ Calculates and returns the distance to the specified I<$trackpoint> object.
 
 sub distance_to {
     my ($from, $to) = (shift, shift);
-    croak 'expects a single trackpoint as argument' if @_ or ! $to->isa('Geo::TCX::Trackpoint');
-    my $dist = $from->to_gpx->distance_to( lat => $to->LatitudeDegrees, lon => $to->LongitudeDegrees );
+    croak 'expects a single argument' if @_;
+    croak 'expects a Geo::TCX::Trackpoint or Geo::Gpx::Point as argument' unless $to->isa('Geo::TCX::Trackpoint') or $to->isa('Geo::Gpx::Point');
+
+    my $dist;
+    if ( $to->isa('Geo::Gpx::Point') ) {
+        $dist = $from->to_gpx->distance_to( $to );
+    } else {
+        $dist = $from->to_gpx->distance_to( lat => $to->LatitudeDegrees, lon => $to->LongitudeDegrees );
+    }
     return $dist
 }
 

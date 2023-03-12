@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 34;
+use Test::More tests => 35;
 use Geo::TCX::Trackpoint;
 
 # Section A - new() constructor
@@ -72,10 +72,12 @@ isa_ok ($clone, 'Geo::TCX::Trackpoint');
 my $dist1  = $tp->distance_to( $tp_basic );
 my $dist2  = $tp_basic->distance_to( $tp );
 my $dist3  = $tp->distance_to( $tp2 );
+my $dist4  = $tp->distance_to( $gpp );
 is ( $dist1,  386.597957,   "   distance_to(): comparing distance between basic trackpoint and full trackpoint");
 is ( $dist2,  '386.607080', "   distance_to(): comparing distance between full trackpoint and basic trackpoint");
 # interesting that distance is not identical. Close enough to one decimal point. Really, good enough. Could round the return value of distance_to() too.
 is ( $dist3,  61.092501,    "   distance_to(): comparing distance between full trackpoints");
+is ( $dist4, '0.000000',    "   distance_to(): comparing distance between trackpoint and a Geo::Gpx::Point");
 
 #
 # time_add(), time_subtract()
