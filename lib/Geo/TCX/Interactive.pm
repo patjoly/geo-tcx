@@ -163,7 +163,7 @@ sub gpx_load {
 
 =item way_add_endpoints( tolerance_meters => # )
 
-Compare the end points of each lap with all waypoints read in the L<Geo::Gpx> instance (by C<< gpx_load() >> and, if the distance is less than C<tolerance_meters>, prompts whether the waypoint should be added to it.
+Compare the end points of each lap with all waypoints read in the L<Geo::Gpx> instance (by C<< gpx_load() >> and, if the distance is greater than C<tolerance_meters>, prompts whether the waypoint should be added to it.
 
 In the affirmative, prompts what name and description should be given to the new waypoint. Set C<tolerance_meters> to 0 to compare all start/end points of laps with waypoints, or to another desired value.
 
@@ -226,27 +226,33 @@ sub way_add_endpoints {
 
 =over 4
 
-=item way_add_device( $directory_on_device )
+=item way_add_device( dir => $directory, distance_max => # )
 
 Prompts the user whether they wish to look for waypoints saved on a GPS device and compare them to the waypoints read in the C<Geo::TCX> instance by C<< gpx_load() >>. The device must be currently plugged in with a USB cable.
 
 In the affirmative, compares each waypoint from the device to those in the instance and, if the distance is greater than 1 meter, prompts whether the waypoint should be added to the waypoints in the object.
 
-If no directory is provided, tries to guess where that directory might be (provided the device is plugged in). Returns false if the directory or waypoints file cannot be found (does not die) or if the user responds no at the initial prompt. Otherwise returns true.
+If no I<$directory> is provided, tries to guess where that directory might be (provided the device is plugged in). Returns false if the directory or waypoints file cannot be found (does not die) or if the user responds no at the initial prompt. Otherwise returns true.
+
+The default C<distance_max> is 50000 (i.e. 50km). Returns true.
 
 =back
 
 =cut
 
 sub way_add_device {
-    my ($o, $loc_dir) = (shift, shift);
+    my ($o, %opts) = @_;
     print "Do you want to search for waypoints saved on your device and add any new ones to the gpx file?\n";
-    print "  - first ensure the device is plugged in with a USB cable\n";
+    print "  - first ensure the device is plugged in with a USB cable (unless you specified a directory)\n";
     print "  - note that you will be prompted before adding any new waypoints\n  - ";
     my $answer = _prompt_yes_no();
     return 0 unless $answer =~ m/^y|ye|yes$/i;
 
-    if ($loc_dir) {
+    my $loc_dir;
+    $loc_dir = $opts{dir};
+    $opts{distance_max} ||= 50000;
+
+    if (defined $loc_dir) {
         croak "$loc_dir cannot be found" unless -d $loc_dir
     } else {
         my @try_these = (
@@ -267,14 +273,20 @@ sub way_add_device {
     }
 
     my $fname;
-    $fname = ($loc_dir =~ /Locations/) ? $loc_dir . '/Locations.fit' : $loc_dir . '/current.gpx';
+    if ($loc_dir =~ /Locations/) {          # should allow dir to be named something else?
+        $fname = $loc_dir . '/Locations.fit';
+        $fname = $loc_dir . '/Lctns.fit' unless -f $fname
+    } else {
+        $fname = $loc_dir . '/current.gpx';
+    }
     unless (-f $fname) {
-        print "No Locations/Waypoints file found on the device\n";
+        print "No Locations/Waypoints file found on the device or specified directory\n";
         print "  - is the device plugged in?\n";
+        print "  - if a directory was specified, check that it contains a Locations.fit or current.gpx file\n";
         print "  - skipping adding waypoints from the device for now\n";
         return 0
     }
-    if ($loc_dir =~ /Locations/) {
+    if ($loc_dir =~ /Locations/) {          # test should be if $fname matches *.fit extension
         my ($fh, $tmp_fname) = tempfile();
         _convert_locations_to_gpx( $fname, $tmp_fname );
         $fname = $tmp_fname
@@ -287,7 +299,7 @@ sub way_add_device {
     my $iter = $device->iterate_waypoints();
     while ( my $pt = $iter->() ) {
         my ($closest_wpt, $distance) = $gpx->waypoint_closest_to( $pt );
-        if ($distance > 1 ) {
+        if ($distance > 1 and $distance <= $opts{distance_max}) {
             print "Point '", $pt->name, "' from the device is ";
             print sprintf('%.1f', $distance), " meters from Waypoint \'", $closest_wpt->name;
             print "\'\n   --> do you want to add that point? ";

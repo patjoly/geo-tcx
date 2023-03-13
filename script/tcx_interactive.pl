@@ -13,7 +13,7 @@ tcx_interactive.pl - Script to use the L<Geo::TCX> module interactively from the
 =head1 SYNOPSIS
 
   tcx_interactive.pl --help
-  tcx_interactive.pl --src_dir=dir [ --help --recent=# --wrk_dir=dir --wpt_dir=dir --dev_dir=dir --tolerance_meters=# ]
+  tcx_interactive.pl --src_dir=dir [ --help --recent=# --wrk_dir=dir --wpt_dir=dir --dev_dir=dir --tolerance_meters=# --distance_max=# ]
 
 =head1 DESCRIPTION
 
@@ -31,8 +31,8 @@ use Geo::Gpx;
 use Geo::TCX::Interactive;
 use Getopt::Long;
 
-my ( $recent, $tolerance_meters, $src_dir, $wrk_dir, $wpt_dir, $dev_dir, $chdir, $help ) = (25, 10);
-sub usage { "Usage: $0 --src_dir=dir [ --help --tolerance=# --recent=# --wrk_dir=dir --wpt_dir=dir --dev_dir=dir ]\n" }
+my ( $recent, $tolerance_meters, $dist_max, $src_dir, $wrk_dir, $wpt_dir, $dev_dir, $chdir, $help ) = (25, 10);
+sub usage { "Usage: $0 --src_dir=dir [ --help --tolerance=# --distance_max=# --recent=# --wrk_dir=dir --wpt_dir=dir --dev_dir=dir ]\n" }
 GetOptions( "recent=i"   =>  \$recent,
             "src_dir=s"  =>  \$src_dir,
             "wrk_dir=s"  =>  \$wrk_dir,
@@ -41,6 +41,7 @@ GetOptions( "recent=i"   =>  \$recent,
             "chdir=s"    =>  \$chdir,
             "help"       =>  \$help,
             "tolerance_meters=i" =>  \$tolerance_meters,
+            "distance_max=i"     =>  \$dist_max,
 )  or die usage();
 die usage() if $help;
 
@@ -85,9 +86,17 @@ If C<< way_add_device() >> is called and I<$dir> is not specified, the method wi
 
 =item C<< --tolerance_meters => # >>
 
-the distance below which waypoints at the beginning or end of a lap are to be ignored when comparing with the waypoints file read in the instance. The default is 10 meters.
+the distance (in meters) below which waypoints at the beginning or end of a lap are to be ignored when comparing with the waypoints file read in the instance. The default is 10 meters. This option avoids saving waypoints unecessarily as points that only differ by a negligible distance are in effect very likely to refer to the same location.
 
-This option is only relevant for C<< way_add_endpoints() >>. It is not considered by C<< way_add_device() >> under the assumption that if a user marked a particular location manually on their device, it has some degree of importance and should not be overlooked. 
+This option is only relevant for C<< way_add_endpoints() >>. It has no effect on C<< way_add_device() >> given that waypoints saved manually by a user on their device may contain other information such as a name and description, and therefore should probably not be overlooked.
+
+This option will be renamed C<< --distance_min >> soon.
+
+=item C<< --distance_max => # >>
+
+the distance (in meters) above which waypoints stored on the device are to be ignored when comparing with the waypoints file read in the instance. The default is 50,000  meters (50km). This option can be useful when the device contains many waypoints that are very far from the bounds of the gpx instance (which avoids having the user answer 'no' to many prompts about points that are nowhere near the main geographic area of interest).
+
+This option is only relevant for C<< way_add_device() >>.
 
 =back
 
@@ -100,7 +109,7 @@ $o->save_laps();
 
 if ($wpt_dir) {
     my $gpx = $o->gpx_load( $wpt_dir );
-    $o->way_add_device( $dev_dir );
+    $o->way_add_device( dir => $dev_dir, distance_max => $dist_max );
     $o->way_add_endpoints( tolerance_meters => $tolerance_meters );
     $o->gpx_save();
 }
