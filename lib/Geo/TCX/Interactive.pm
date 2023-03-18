@@ -161,13 +161,13 @@ sub gpx_load {
 
 =over 4
 
-=item way_add_endpoints( tolerance_meters => # )
+=item way_add_endpoints( distance_min => # )
 
-Compare the end points of each lap with all waypoints read in the L<Geo::Gpx> instance (by C<< gpx_load() >> and, if the distance is greater than C<tolerance_meters>, prompts whether the waypoint should be added to it.
+Compare the end points of each lap with all waypoints read in the L<Geo::Gpx> instance (by C<< gpx_load() >> and, if the distance is greater than C<distance_min>, prompts whether the waypoint should be added to it.
 
-In the affirmative, prompts what name and description should be given to the new waypoint. Set C<tolerance_meters> to 0 to compare all start/end points of laps with waypoints, or to another desired value.
+In the affirmative, prompts what name and description should be given to the new waypoint. Set C<distance_min> to 0 to compare all start/end points of laps with waypoints, or to another desired value.
 
-The default C<tolerance_meters> is 10. Returns true.
+The default C<distance_min> is 10. Returns true.
 
 =back
 
@@ -175,7 +175,7 @@ The default C<tolerance_meters> is 10. Returns true.
 
 sub way_add_endpoints {
     my ($o, %opts) = @_;
-    $opts{tolerance_meters} = 10 unless defined $opts{tolerance_meters};  # could be zero
+    $opts{distance_min} = 10 unless defined $opts{distance_min};  # could be zero
     my $gpx = $o->gpx;
 
     for my $i (1 .. $o->laps) {
@@ -190,7 +190,7 @@ sub way_add_endpoints {
 
             my ($closest_wpt, $distance);
             ($closest_wpt, $distance) = $gpx->waypoint_closest_to( $end_pt ) if $has_latitude;
-            if ($distance > $opts{tolerance_meters} ) {
+            if ($distance > $opts{distance_min} ) {
                 print "\n$order point of lap $i is ", sprintf('%.1f', $distance), " meters from Waypoint \'";
                 print $closest_wpt->name, "\'\n   --> do you want to add that point ? ";
 

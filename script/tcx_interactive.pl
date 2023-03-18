@@ -13,7 +13,7 @@ tcx_interactive.pl - Script to use the L<Geo::TCX> module interactively from the
 =head1 SYNOPSIS
 
   tcx_interactive.pl --help
-  tcx_interactive.pl --src_dir=dir [ --help --recent=# --wrk_dir=dir --wpt_dir=dir --dev_dir=dir --tolerance_meters=# --distance_max=# ]
+  tcx_interactive.pl --src_dir=dir [ --help --recent=# --wrk_dir=dir --wpt_dir=dir --dev_dir=dir --distance_min=# --distance_max=# ]
 
 =head1 DESCRIPTION
 
@@ -31,22 +31,21 @@ use Geo::Gpx;
 use Geo::TCX::Interactive;
 use Getopt::Long;
 
-my ( $recent, $tolerance_meters, $dist_max, $src_dir, $wrk_dir, $wpt_dir, $dev_dir, $chdir, $help ) = (25, 10);
-sub usage { "Usage: $0 --src_dir=dir [ --help --tolerance=# --distance_max=# --recent=# --wrk_dir=dir --wpt_dir=dir --dev_dir=dir ]\n" }
+my ( $recent, $distance_min, $dist_max, $src_dir, $wrk_dir, $wpt_dir, $dev_dir, $chdir, $help ) = (25, 10);
+sub usage { "Usage: $0 --src_dir=dir [ --help --distance_min=# --distance_max=# --recent=# --wrk_dir=dir --wpt_dir=dir --dev_dir=dir ]\n" }
 GetOptions( "recent=i"   =>  \$recent,
             "src_dir=s"  =>  \$src_dir,
             "wrk_dir=s"  =>  \$wrk_dir,
             "wpt_dir=s"  =>  \$wpt_dir,
             "dev_dir=s"  =>  \$dev_dir,
-            "chdir=s"    =>  \$chdir,
+            "chdir=s"    =>  \$chdir,               # undocumented: for debugging
             "help"       =>  \$help,
-            "tolerance_meters=i" =>  \$tolerance_meters,
+            "distance_min=i" =>  \$distance_min,
             "distance_max=i"     =>  \$dist_max,
 )  or die usage();
 die usage() if $help;
 
 # check that any specified *_dir exist. $src_dir will be checked by new()
-# $chdir is undocumented and provided for debugging purposes
 $src_dir =~ s/^\s*~/$ENV{HOME}/ if defined $src_dir;
 $wrk_dir =~ s/^\s*~/$ENV{HOME}/ if defined $wrk_dir;
 $wpt_dir =~ s/^\s*~/$ENV{HOME}/ if defined $wpt_dir;
@@ -84,7 +83,7 @@ the directory on the GPS device where the waypoints are stored. On recent device
 
 If C<< way_add_device() >> is called and I<$dir> is not specified, the method will search where this directory might be (provided the GPS device is plugged in).
 
-=item C<< --tolerance_meters => # >>
+=item C<< --distance_min => # >>
 
 the distance (in meters) below which waypoints at the beginning or end of a lap are to be ignored when comparing with the waypoints file read in the instance. The default is 10 meters. This option avoids saving waypoints unecessarily as points that only differ by a negligible distance are in effect very likely to refer to the same location.
 
@@ -110,7 +109,7 @@ $o->save_laps();
 if ($wpt_dir) {
     my $gpx = $o->gpx_load( $wpt_dir );
     $o->way_add_device( dir => $dev_dir, distance_max => $dist_max );
-    $o->way_add_endpoints( tolerance_meters => $tolerance_meters );
+    $o->way_add_endpoints( distance_min => $distance_min );
     $o->gpx_save();
 }
 
