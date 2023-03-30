@@ -366,46 +366,18 @@ sub gpx {
 
 =over 4
 
-=item way_clip( $name | $regex | LIST )
+=item waypoints_clip( $name | $regex | LIST )
 
-Sends the coordinates of waypoints whose name is either C<$name> or matches C<$regex> to the clipboard (all points found are sent to the clipboard). Returns an array of points found.
+Calls C<Geo::Gpx>'s C<waypoints_clip()> method with the gpx object loaded in the instance (see L<Geo::Gpx>).
 
-By default, the regex is case-sensitive; specify C<qr/(?i:...)/> to ignore case.
-
-Alternatively, an array of C<Geo::GXP::Points> can be supplied such that we can call C<< $o->way_clip( $o->gpx->search_desc( qr/(?i:Sunset)/ ) >>.
-
-This method is only supported on unix-based systems that have the C<xclip> utility installed (see BUGS AND LIMITATIONS).
+This method is only supported on unix-based systems that have the C<xclip> utility installed (see DEPENDENCIES).
 
 =back
 
 =cut
 
-sub way_clip {
-    my $gpx = shift->gpx;
-
-    my @points;
-    if ( ref $_[0] and $_[0]->isa('Geo::Gpx::Point' )) {
-        @points = @_
-    } else {
-        my $first_arg = shift;
-        if ( ref( $first_arg ) eq 'Regexp' )  {
-            @points = $gpx->waypoints_search( name => $first_arg )
-        } else {
-            my $match = $gpx->waypoints( name => $first_arg );
-            push @points, $match if $match
-        }
-        croak 'no point matches the supplied regex' unless @points
-    }
-    my @points_reversed = reverse @points;
-
-    for my $pt (@points_reversed) {
-        croak 'way_clip() expects list of Geo::Gpx::Point objects' unless $pt->isa('Geo::Gpx::Point');
-        my $coords = $pt->lat . ', ';
-        $coords   .= $pt->lon;
-        system("echo $coords | xclip -selection clipboard")
-    }
-    return @points
-}
+sub way_clip { waypoints_clip( @_ ) }
+sub waypoints_clip { shift->gpx->waypoints_clip( @_ ) }
 
 =over 4
 
