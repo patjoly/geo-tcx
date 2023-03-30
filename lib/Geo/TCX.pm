@@ -879,7 +879,7 @@ sub _check_fit2tcx_pl_version {                 # Called by _convert_fit_to_tcx 
     $at_least ||= $version_at_least;
 
     require Geo::FIT;
-    croak "version of Geo::FIT $at_least or higher is required\n"    if Geo::FIT->version < $at_least;
+    croak "version of Geo::FIT $at_least or higher is required\n"    if $Geo::FIT::VERSION < $at_least;
     croak "fit2tcx.pl from Geo::FIT is not available on your path\n" unless _get_path_to_fit2tcx_pl();
 
     my ($exit_value, $did_start);               # Can we run it?
