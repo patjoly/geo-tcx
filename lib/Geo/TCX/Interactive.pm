@@ -169,6 +169,8 @@ In the affirmative, prompts what name and description should be given to the new
 
 The default C<distance_min> is 10. Returns true.
 
+On unix-based systems, the coordinates of the points prompted for addition are also sent to the clipboard (see DEPENDENCIES).
+
 =back
 
 =cut
@@ -204,6 +206,9 @@ sub way_add_endpoints {
                 print $closest_wpt->lat . "  " . $closest_wpt->lon;
                 print "\n\n";
 
+                Geo::Gpx->waypoints_clip( $end_pt->to_gpx );
+                # call as class method since we do not have a gpx instance with that point
+
                 my $answer = _prompt_yes_no();
                 if ( $answer eq 'y' ) {
                     my $gpx_pt = $end_pt->to_gpx();
@@ -235,6 +240,8 @@ In the affirmative, compares each waypoint from the device to those in the insta
 If no I<$directory> is provided, tries to guess where that directory might be (provided the device is plugged in). Returns false if the directory or waypoints file cannot be found (does not die) or if the user responds no at the initial prompt. Otherwise returns true.
 
 The default C<distance_max> is 50000 (i.e. 50km). Returns true.
+
+On unix-based systems, the coordinates of the points prompted for addition are also sent to the clipboard (see DEPENDENCIES).
 
 =back
 
@@ -300,6 +307,10 @@ sub way_add_device {
     while ( my $pt = $iter->() ) {
         my ($closest_wpt, $distance) = $gpx->waypoint_closest_to( $pt );
         if ($distance > 1 and $distance <= $opts{distance_max}) {
+
+            Geo::Gpx->waypoints_clip( $pt );
+            # call as class method since we do not have a gpx instance with that point
+
             print "Point '", $pt->name, "' from the device is ";
             print sprintf('%.1f', $distance), " meters from Waypoint \'", $closest_wpt->name;
             print "\'\n   --> do you want to add that point? ";
@@ -495,9 +506,9 @@ Coming soon.
 
 L<Geo::FIT> is also required to parse FIT files and to add waypoints from a GPS device (except for some older models).
 
-The C<< way_clip() >> method is only supported on unix-based systems that have the C<xclip> utility installed. On Debian based system, you may install it as
+The C<< waypoints_clip() >> method is only supported on unix-based systems that have the C<xclip> utility installed. On Debian based system, you may install it as
 
-  aptitude show xlip
+  apt show xlip
   sudo apt install xclip
 
 See your package manager's instructions for information on how to install it on other systems.
