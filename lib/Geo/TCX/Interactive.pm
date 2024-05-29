@@ -189,40 +189,41 @@ sub way_add_endpoints {
             my $end_pt = $o->lap($i)->trackpoint( $index );
             my $has_latitude = $end_pt->LatitudeDegrees;
 
+            if ($has_latitude) {
+                my ($closest_wpt, $distance);
+                ($closest_wpt, $distance) = $gpx->waypoint_closest_to( $end_pt );
+                if ($distance > $opts{distance_min} ) {
+                    print "\n$order point of lap $i is ", sprintf('%.1f', $distance), " meters from Waypoint \'";
+                    print $closest_wpt->name, "\'\n   --> do you want to add that point ? ";
 
-            my ($closest_wpt, $distance);
-            ($closest_wpt, $distance) = $gpx->waypoint_closest_to( $end_pt ) if $has_latitude;
-            if ($distance > $opts{distance_min} ) {
-                print "\n$order point of lap $i is ", sprintf('%.1f', $distance), " meters from Waypoint \'";
-                print $closest_wpt->name, "\'\n   --> do you want to add that point ? ";
+                    print "$order point of lap $i info:\n";
+                    $end_pt->summ;
+                    print $end_pt->LatitudeDegrees . "  " . $end_pt->LongitudeDegrees;
+                    print "\n\n";
 
-                print "$order point of lap $i info:\n";
-                $end_pt->summ;
-                print $end_pt->LatitudeDegrees . "  " . $end_pt->LongitudeDegrees;
-                print "\n\n";
+                    print $closest_wpt->name, " info:\n";
+                    $closest_wpt->summ;
+                    print $closest_wpt->lat . "  " . $closest_wpt->lon;
+                    print "\n\n";
 
-                print $closest_wpt->name, " info:\n";
-                $closest_wpt->summ;
-                print $closest_wpt->lat . "  " . $closest_wpt->lon;
-                print "\n\n";
+                    Geo::Gpx->waypoints_clip( $end_pt->to_gpx );
+                    # call as class method since we do not have a gpx instance with that point
 
-                Geo::Gpx->waypoints_clip( $end_pt->to_gpx );
-                # call as class method since we do not have a gpx instance with that point
+                    my $answer = _prompt_yes_no();
+                    if ( $answer eq 'y' ) {
+                        my $gpx_pt = $end_pt->to_gpx();
+                        my ($name, $desc, $cmt) = _prompt_for_waypoint_fields(qw/ name desc cmt /);
+                        $gpx_pt->desc( $desc ) if $desc;
+                        $gpx_pt->cmt( $cmt ) if $cmt;
+                        while ( ! $name ) {
+                            print "Waypoint name is required\n";
+                            $name = _prompt_for_waypoint_fields('name');
+                        }
+                        $gpx_pt->name( $name );
 
-                my $answer = _prompt_yes_no();
-                if ( $answer eq 'y' ) {
-                    my $gpx_pt = $end_pt->to_gpx();
-                    my ($name, $desc, $cmt) = _prompt_for_waypoint_fields(qw/ name desc cmt /);
-                    $gpx_pt->desc( $desc ) if $desc;
-                    $gpx_pt->cmt( $cmt ) if $cmt;
-                    while ( ! $name ) {
-                        print "Waypoint name is required\n";
-                        $name = _prompt_for_waypoint_fields('name');
-                    }
-                    $gpx_pt->name( $name );
-
-                    $gpx->waypoints_add($gpx_pt)
-                } else { next }
+                        $gpx->waypoints_add($gpx_pt)
+                    } else { next }
+                }
             }
         }
     }
